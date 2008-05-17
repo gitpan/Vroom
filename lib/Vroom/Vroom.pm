@@ -6,7 +6,7 @@ use warnings;
 # use XXX;
 # use diagnostics;
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 use IO::All;
 use YAML::XS;
@@ -21,7 +21,7 @@ field clean => 0;
 field start => 0;
 field digits => 0;
 field config => {
-    title => 'Unnamed Presentation',
+    title => 'Untitled Presentation',
     height => 24,
     width => 80,
     list_indent => 10,
@@ -33,9 +33,7 @@ sub new {
 }
 
 sub vroom {
-    my $self = shift;
-
-    local @ARGV = @_;
+    my $self = ref($_[0]) ? shift : (shift)->new;
 
     $self->getOptions;
 
@@ -57,11 +55,6 @@ sub getOptions {
 
     do { delete $self->{$_} unless defined $self->{$_} }
         for qw(clean input vroom);
-
-    my @files = <*.vroom>;
-
-    $self->input($files[0])
-        if @files;
 }
 
 sub cleanUp {
@@ -153,7 +146,7 @@ sub parseSlideConfig {
     my $config = {};
     for my $option (split /\s*,\s*/, $string) {
         $config->{$1} = 1
-            if $option =~ /^(config|skip|center|perl|yaml)$/;
+            if $option =~ /^(config|skip|center|perl|yaml|make)$/;
         $config->{indent} = $1
             if $option =~ /i(\d+)/;
     }
@@ -169,7 +162,6 @@ sub applyOptions {
         %$config,
     };
 
-    $self->ext("");
     if ($config->{config}) {
         $config = {
             %{$self->config},
@@ -178,11 +170,13 @@ sub applyOptions {
         $self->config($config);
         return '';
     }
+
     if ($config->{center}) {
         $slide =~ s{^(\+?)\ *(.*?)\ *$}
                    {$1 . ' ' x (($self->config->{width} - length($2)) / 2) . $2}gem;
         $slide =~ s{^\s*$}{}gm;
     }
+
     if (defined $config->{indent}) {
         my $indent = $config->{indent};
         $slide =~ s{^(\+?)}{$1 . ' ' x $indent}gem;
@@ -191,12 +185,17 @@ sub applyOptions {
         my $indent = $config->{list_indent};
         $slide =~ s{^(\+?)}{$1 . ' ' x $indent}gem;
     }
-    if ($config->{perl}) {
-        $self->ext(".pl");
-    }
-    if ($config->{yaml}) {
-        $self->ext(".yaml");
-    }
+
+    my $ext = 
+        $config->{perl} ? ".pl" :
+        $config->{python} ? ".py" :
+        $config->{ruby} ? ".rb" :
+        $config->{shell} ? ".sh" :
+        $config->{yaml} ? ".yaml" :
+        $config->{make} ? ".mk" :
+        "";
+    $self->ext($ext);
+
     return $slide;
 }
 
@@ -265,8 +264,13 @@ The slides are named in alpha order. That means you can bring them all
 into a Vim session with the command: C<vim 0*>. C<vroom --vroom> does
 exactly that.
 
-Vroom creates a file called C<slides/.vimrc> with many helpful key mappings
-for navigating a slideshow. See L<KEY MAPPINGS> below.
+Vroom creates a file called C<./.vimrc> with helpful key mappings for
+navigating a slideshow. See L<KEY MAPPINGS> below.
+
+Please note that you will need the following line in your
+C<$HOME/.vimrc> file in order to pick up the local C<.vimrc> file.
+
+    set exrc
 
 Vroom takes advantage of Vim's syntax highlighting. It also lets you run
 slides that contain code.
@@ -345,10 +349,11 @@ Quit Vroom.
 
 =head1 NOTE
 
-Vroom is called Vroom but the module is Vroom::Vroom because the CPAN
-shell thinks Vroom is Tim Vroom, and it refuses to install him.
+Vroom is called Vroom but the module is Vroom::Vroom because the
+CPAN shell sometimes thinks Vroom is Tim Vroom, and it refuses to
+install him.
 
-Use a command like this to install Vroom:
+Use a shell command like this to install Vroom:
 
     sudo cpan Vroom::Vroom
 

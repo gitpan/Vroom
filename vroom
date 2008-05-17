@@ -1,4 +1,5 @@
 #!/usr/bin/perl
 
 use Vroom::Vroom;
-Vroom::Vroom->new->vroom(@ARGV);
+Vroom::Vroom->vroom;
+
