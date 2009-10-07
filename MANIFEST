@@ -1,6 +1,4 @@
 Changes
-example/Makefile
-example/slides.vroom
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
 inc/Module/Install/Can.pm
