@@ -1,4 +1,12 @@
 ---
+version: 0.26
+date:    Tue Oct 11 21:47:43 EDT 2011
+changes:
+- Add inline script support for running external programs
+  for things like images and browser.
+- Support for auto-sizing slides (wolfsage++)
+- Switch from Gloom to Mo.
+---
 version: 0.25
 date:    Tue Oct  5 22:18:50 PDT 2010
 changes:

@@ -1,28 +1,32 @@
 ---
 abstract: 'Slide Shows in Vim'
 author:
-  - 'Ingy döt Net <ingy@cpan.org>'
+  - 'Ingy döt Net <ingy@ingy.net>'
 build_requires:
   ExtUtils::MakeMaker: 6.42
 configure_requires:
   ExtUtils::MakeMaker: 6.42
 distribution_type: module
-generated_by: 'Module::Install version 1.00'
+generated_by: 'Module::Install version 1.01'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
+module_name: Vroom
 name: Vroom
 no_index:
   directory:
     - inc
     - t
 requires:
-  File::HomeDir: 0
-  IO::All: 0
-  Template::Toolkit::Simple: 0
-  YAML::XS: 0
+  File::HomeDir: 0.97
+  IO::All: 0.44
+  Template::Toolkit::Simple: 0.13
+  Term::Size: 0.2
+  YAML::XS: 0.37
   perl: 5.6.1
 resources:
+  homepage: http://github.com/ingydotnet/vroom-pm/tree
   license: http://dev.perl.org/licenses/
-version: 0.25
+  repository: git://github.com/ingydotnet/vroom-pm.git
+version: 0.26
