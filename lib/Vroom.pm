@@ -3,19 +3,19 @@
 # abstract:  Slide Shows in Vim
 # author:    Ingy döt Net <ingy@ingy.net>
 # license:   perl
-# copyright: 2008, 2009, 2010, 2011
+# copyright: 2008-2012
 
 use 5.006001;
 package Vroom;
 use Vroom::Mo;
 
-our $VERSION = '0.26';
+our $VERSION = '0.27';
 
-use File::HomeDir 0.97;
+use File::HomeDir 0.99;
 use IO::All 0.44;
-use Template::Toolkit::Simple 0.13;
-use Term::Size 0.2;
-use YAML::XS 0.37;
+use Template::Toolkit::Simple 0.16;
+use Term::Size 0.207;
+use YAML::XS 0.38;
 
 use Getopt::Long;
 use Cwd;
@@ -181,6 +181,9 @@ sub runSlide {
     }
     elsif ($slide =~ /\.yaml$/) {
         exec "clear; $^X -MYAML::XS -MData::Dumper -e '\$Data::Dumper::Terse = 1; \$Data::Dumper::Indent = 1; print Dumper YAML::XS::LoadFile(shift)' run.slide";
+    }
+    elsif ($slide =~ /\.sh$/) {
+        exec "clear; $ENV{SHELL} -i run.slide";
     }
 }
 
