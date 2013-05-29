@@ -3,13 +3,13 @@
 # abstract:  Slide Shows in Vim
 # author:    Ingy döt Net <ingy@ingy.net>
 # license:   perl
-# copyright: 2008-2012
+# copyright: 2008-2013
 
 use 5.006001;
 package Vroom;
 use Vroom::Mo;
 
-our $VERSION = '0.27';
+our $VERSION = '0.28';
 
 use File::HomeDir 0.99;
 use IO::All 0.44;
@@ -21,52 +21,55 @@ use Getopt::Long;
 use Cwd;
 use Carp;
 
-has input => (default => sub {'slides.vroom'});
-has stream => (default => sub {''});
-has ext => (default => sub {''});
-has help => (default => sub{0});
-has clean => (default => sub{0});
-has compile => (default => sub{0});
-has sample => (default => sub{0});
-has run => (default => sub{0});
-has html => (default => sub{0});
-has text => (default => sub{0});
-has ghpublish => (default => sub{0});
-has start => (default => sub{0});
-has digits => (default => sub{0});
-has skip => (default => sub{0});
-has config => (
-    default => sub {
-        +{
-            title => 'Untitled Presentation',
-            height => 24,
-            width => 80,
-            list_indent => 10,
-            skip => 0,
-            vim => 'vim',
-            vimrc => '',
-            gvimrc => '',
-            script => '',
-            auto_size => 0,
-        };
-    }
-);
+use Encode;
+
+has input => 'slides.vroom';
+has notesfile => 'notes.txt';
+has has_notes => 0;
+has stream => '';
+has ext => '';
+has help => 0;
+has clean => 0;
+has compile => 0;
+has sample => 0;
+has run => 0;
+has html => 0;
+has text => 0;
+has ghpublish => 0;
+has start => 0;
+has digits => 0;
+has skip => 0;
+has config => {
+    title => 'Untitled Presentation',
+    height => 24,
+    width => 80,
+    list_indent => 10,
+    skip => 0,
+    vim => 'vim',
+    vim_opts => '-u NONE',
+    vimrc => '',
+    gvimrc => '',
+    script => '',
+    auto_size => 0,
+};
 
 sub usage {
     return <<'...';
-    Usage: vroom [options]
+    Usage: vroom <command> [options]
 
-    -new        - Create a sample 'slides.vroom' file
-    -vroom      - Start slideshow
-    -compile    - Generate slides
-    -html       - Publish slides as HTML
-    -text       - Publish slides as plain text
+    Commands:
+        new          - Create a sample 'slides.vroom' file
+        vroom        - Start slideshow
+        compile      - Generate slides
+        html         - Publish slides as HTML
+        text         - Publish slides as plain text
+        clean        - Delete generated files
+        help         - Get help!
 
-    -skip=#     - Skip # of slides
-    -input=name - Specify an input file name
+    Options:
+        --skip=#     - Skip # of slides
+        --input=name - Specify an input file name
 
-    -clean      - Delete generated files
-    -help       - Get help!
 ...
 }
 
@@ -118,17 +121,26 @@ Don't run vroom in your home directory.
 Create a new directory for your slides and run vroom from there.
 ...
 
+    my $cmd = shift(@ARGV) or die $self->usage;
+    die $self->usage unless $cmd =~ s/
+        ^-{0,2}(
+            help |
+            new |
+            vroom |
+            compile |
+            run |
+            html |
+            text |
+            clean |
+            ghpublish
+        )$
+    /$1/x;
+    $cmd = 'start' if $cmd eq 'vroom';
+    $cmd = 'sample' if $cmd eq 'new';
+    $self->{$cmd} = 1;
+
     GetOptions(
-        "help" => \$self->{help},
-        "new" => \$self->{sample},
-        "clean" => \$self->{clean},
-        "compile" => \$self->{compile},
-        "run" => \$self->{run},
-        "html" => \$self->{html},
-        "text" => \$self->{text},
-        "ghpublish" => \$self->{ghpublish},
         "input=s"  => \$self->{input},
-        "vroom"  => \$self->{start},
         "skip=i" => \$self->{skip},
     ) or die $self->usage;
 
@@ -143,6 +155,7 @@ sub cleanUp {
     unlink('.vimrc');
     unlink('.gvimrc');
     unlink('run.slide');
+    unlink($self->notesfile);
     io->dir('bin')->rmtree;
     io->dir('done')->rmtree;
 }
@@ -235,19 +248,20 @@ sub makeHTML {
     $self->makeSlides;
     io('html')->mkdir;
     my @slides = glob('0*');
+    my @notes = $self->parse_notesfile;
     for (my $i = 0; $i < @slides; $i++) {
         my $slide = $slides[$i];
-        my $prev = ($i > 0) ? $slides[$i - 1] : '';
+        my $prev = ($i > 0) ? $slides[$i - 1] : 'index';
         my $next = ($i + 1 < @slides) ? $slides[$i + 1] : '';
         my $text = io($slide)->all;
-        my $title = $text;
         $text = Template::Toolkit::Simple->new()->render(
             $self->slideTemplate,
             {
-                title => "$slide",
+                title => $notes[$i]->{'title'},
                 prev => $prev,
                 next => $next,
-                content => $text,
+                content => decode_utf8($text),
+                notes => $self->htmlize_note($notes[$i]->{'text'}),
             }
         );
         io("html/$slide.html")->print($text);
@@ -259,7 +273,7 @@ sub makeHTML {
         next if $slide =~ /^\d+[a-z]/;
         my $title = io($slide)->all;
         $title =~ s/.*?((?-s:\S.*)).*/$1/s;
-        push @$index, [$slide, $title];
+        push @$index, [$slide, decode_utf8($title)];
     }
 
     io("html/index.html")->print(
@@ -268,6 +282,7 @@ sub makeHTML {
             {
                 config => $self->config,
                 index => $index,
+
             }
         )
     );
@@ -286,7 +301,7 @@ function navigate(e) {
         ? e.keyCode
         : e.which;
     if (keynum == 13 || keynum == 32) {
-        window.location = "001.html";
+        window.location = "[% index.0.0 %].html";
         return false;
     }
     return true;
@@ -301,7 +316,7 @@ h4 {
 }
 </style>
 </head>
-<body>
+<body onkeydown="return navigate(event)">
 <h4>Use SPACEBAR to peruse the slides or click one to start...<h4>
 <h1>[% config.title | html %]</h1>
 <ul>
@@ -316,6 +331,7 @@ href="http://ingydotnet.github.com/vroom-pm">Vroom</a>. Use &lt;SPACE&gt; key to
 forward and &lt;BACKSPACE&gt; to go backwards.
 </p>
 </body>
+</html>
 ...
 }
 
@@ -350,11 +366,18 @@ function navigate(e) {
 }
 </script>
 </head>
-<body onkeypress="return navigate(event)">
+<body onkeydown="return navigate(event)">
+<div style="border-style: solid ; border-width: 2px ; font-size: x-large">
 <pre>
 [%- content | html -%]
 </pre>
+</div>
+<br>
+<div style="font-size: small">
+<p>[% notes %]</p>
+</div>
 </body>
+</html>
 ...
 }
 
@@ -370,6 +393,10 @@ sub getInput {
     $self->stream($stream);
 }
 
+my $TRANSITION   = qr/^\+/m;
+my $SLIDE_MARKER = qr/^={4}\n/m;
+my $TITLE_MARKER = qr/^%\s*(.*?)\n/m;
+
 sub buildSlides {
     my $self = shift;
     my @split = split /^(----\ *.*)\n/m, $self->stream;
@@ -382,15 +409,22 @@ sub buildSlides {
         $config =~ s/^----\s*(.*?)\s*$/$1/;
         push @raw_configs, $config;
         push @raw_slides, $slide;
+        $self->has_notes(1) if $slide =~ $SLIDE_MARKER;
     }
     $self->{digits} = int(log(@raw_slides)/log(10)) + 2;
 
     my $number = 0;
 
+    '' > io($self->notesfile) if $self->has_notes;                      # start with a blank file so we can append
     for my $raw_slide (@raw_slides) {
         my $config = $self->parseSlideConfig(shift @raw_configs);
 
         next if $config->{skip};
+
+        # could move the increment of $number up here, but then we'd count config slides
+        # and we don't really want to do that
+        # so just use $number + 1 for now, and we'll increment below
+        my ($title, $notes) = $self->extract_notes($raw_slide, $number + 1);
 
         $raw_slide = $self->applyOptions($raw_slide, $config)
             or next;
@@ -403,12 +437,14 @@ sub buildSlides {
             next;
         }
 
+        $self->print_notes($title, $number, $notes) if $self->has_notes;
+
         $raw_slide = $self->padVertical($raw_slide);
 
         my @slides;
         my @scripts;
         my $slide = '';
-        for my $part (split /^\+/m, $raw_slide) {
+        for my $part (split /$TRANSITION/, $raw_slide) {
             $slide = '' if $config->{replace};
             my $script = '';
             if ($self->config->{script}) {
@@ -451,6 +487,111 @@ sub buildSlides {
             }
         }
     }
+}
+
+my $NEXT_SLIDE = '<Space>';
+
+sub extract_notes {
+    my $self = shift;
+    # have to deal with the slide argument in $_[0] directly so we can modify it
+    my $number = $_[1];
+
+    my $title = $_[0] =~ s/$TITLE_MARKER// ? $1 : "Slide $number";
+    my $notes = $_[0] =~ s/$SLIDE_MARKER(.*)\s*\Z//s ? $1 : '';
+
+    # verify that the number of transitions in the notes matches the number of transitions in the slide
+    # if not, do something about it
+    # (note: using a secret operator here; see http://www.catonmat.net/blog/secret-perl-operators/#goatse )
+    my $num_slide_transitions =()= $_[0] =~ /$TRANSITION/g;
+    my $num_notes_transitions =()= $notes =~ /$TRANSITION/g;
+    if ($num_notes_transitions < $num_slide_transitions)
+    {
+        # add more transitions
+        $notes .= "\n+" x ($num_slide_transitions - $num_notes_transitions);
+    }
+    elsif ($num_notes_transitions > $num_slide_transitions)
+    {
+        # warn, and then remove transitions
+        # we'll reverse the string so we can remove transitions from back to front
+        warn("too many transitions for slide $title");
+        $notes = reverse $notes;
+        $notes =~ s/\+\n/\n/ for 1..($num_notes_transitions - $num_slide_transitions);
+        $notes = reverse $notes;
+    }
+
+    $notes =~ s/$TRANSITION/$NEXT_SLIDE\n/g;
+
+    return ($title, $notes);
+}
+
+sub print_notes {
+    my $self = shift;
+    my ($title, $number, $notes) = @_;
+
+    "\n" . ($number == 1 ? ' ' x length($NEXT_SLIDE) : $NEXT_SLIDE) . "    -- $title --\n\n$notes\n" >> io($self->notesfile);
+}
+
+sub parse_notesfile
+{
+    my $self = shift;
+
+    return () unless -r $self->notesfile;
+    my $notes = io($self->notesfile)->slurp;
+
+    # first slide doesn't have a marker, so we'll add one, for consistency
+    $notes = $NEXT_SLIDE . $notes;
+
+    my @notes;
+    my @stream = split(/\Q$NEXT_SLIDE\E(?:\s+-- (.*?) --)?\s*/, $notes);
+    # skipping 0 because, since we're starting with what we're splitting on, the first field will
+    # always be empty
+    for (1..$#stream)
+    {
+        if ($_ % 2)
+        {
+            my $title = $stream[$_];
+            $title = $notes[-1]->{'title'} unless defined $title;
+            push @notes, { title => $title };
+        }
+        else
+        {
+            my $text = $stream[$_];
+            $text =~ s/\s+\Z//;
+            $notes[-1]->{'text'} = $stream[$_];
+        }
+    }
+
+    return @notes;
+}
+
+my %inline_tags; BEGIN { %inline_tags = ( BQ => 'code', IT => 'i', BO => 'b', ); }
+sub inline_element { my $t = $_[1]; $t =~ s/^.//; $t =~ s/.$//; return "<$inline_tags{$_[0]}>$t</$inline_tags{$_[0]}>" }
+sub htmlize_note
+{
+     use Text::Balanced qw< extract_multiple extract_delimited >;
+
+    my $self = shift;
+    my ($note) = @_;
+    $note = '' unless defined $note;
+
+    $note =~ s{((^\s*\*\s+.+?\n)+)}{"<ul>" . join('', map { s/^\s*\*\s+//; "<li>$_</li>" } split("\n", $1)) . "</ul>"}meg;
+
+    my @bits;
+    $note = join('', map { ref $_ ? scalar((push @bits, inline_element(ref $_, $$_)), "{X$#bits}") : $_ }
+        extract_multiple($note,
+        [
+            { BQ => sub { extract_delimited($_[0], q{`}, '', q{`}) } },
+            { IT => sub { extract_delimited($_[0], q{_}, '', q{_}) } },
+            { BO => sub { extract_delimited($_[0], q{*}, '', q{*}) } },
+            qr/[^`_*]+/,
+        ])
+    );
+    $note =~ s{--}{&mdash;}g;
+    $note =~ s{ \.\.\.}{&nbsp;...}g;
+    $note =~ s{\n+}{</p><p>}g;
+    $note =~ s/{X(\d+)}/$bits[$1]/g;
+
+    return $note;
 }
 
 sub parseScript {
@@ -574,6 +715,7 @@ sub padVertical {
     my $slide = shift;
     $slide =~ s/\A\s*\n//;
     $slide =~ s/\n\s*\z//;
+    $slide =~ s/ +$//mg;
     my @lines = split /\n/, $slide;
     my $lines = @lines;
     my $before = int(($self->config->{height} - $lines) / 2) - 1;
@@ -594,7 +736,7 @@ sub writeVimrc {
     my $self = shift;
 
     my $home_vimrc = File::HomeDir->my_home . "/.vroom/vimrc";
-    my $home_vimrc_content = -e $home_vimrc ? io($home_vimrc)->all : ''; 
+    my $home_vimrc_content = -e $home_vimrc ? io($home_vimrc)->all : '';
 
     my $next_cmd = $self->config->{script}
         ? ':n<CR>:<CR>:call RunIf()<CR>:<CR>gg'
@@ -633,6 +775,8 @@ time, and rerun vroom. You should not get this message again.
     $title =~ s/\s/\\ /g;
     io(".vimrc")->print(<<"...");
 " This .vimrc file was created by Vroom-$VERSION
+set nocompatible
+syntax on
 $script_functions
 map <SPACE> $next_cmd
 map <BACKSPACE> :N<CR>:<CR>gg
@@ -657,7 +801,7 @@ ${\ $self->config->{vimrc}}
 
     if ($self->config->{vim} =~ /\bgvim\b/) {
         my $home_gvimrc = File::HomeDir->my_home . "/.vroom/gvimrc";
-        my $home_gvimrc_content = -e $home_gvimrc ? io($home_gvimrc)->all : ''; 
+        my $home_gvimrc_content = -e $home_gvimrc ? io($home_gvimrc)->all : '';
 
         io(".gvimrc")->print(<<"...");
 " Values from slides.vroom config section. (under 'gvimrc')
@@ -686,7 +830,7 @@ sub writeHelp {
     QQ              Quit Vroom
 
     RR              Run slide as a program
-    VV              vroom --vroom 
+    VV              vroom vroom
     EE              Edit file under cursor
     OO              Open file under cursor (Mac OS X)
 
@@ -699,7 +843,8 @@ sub writeHelp {
 sub startUp {
     my $self = shift;
     my $vim = $self->config->{vim};
-    exec "$vim 0*";
+    my $vim_opts = $self->config->{vim_opts} || '';
+    exec "$vim $vim_opts '+source .vimrc' 0*";
 }
 
 sub sampleSlides {
@@ -714,7 +859,7 @@ please delete or move this one.
     io($file)->print(<<'...');
 # This is a sample Vroom input file. It should help you get started.
 #
-# Edit this file with your content. Then run `vroom --vroom` to start
+# Edit this file with your content. Then run `vroom vroom` to start
 # the show!
 #
 # See `perldoc Vroom` for complete details.
@@ -723,9 +868,10 @@ please delete or move this one.
 # Basic config options.
 title: Vroom!
 indent: 5
-height: 18
-width: 69
-#auto_size: 1
+auto_size: 1
+# height: 18
+# width: 69
+vim_opts: '-u NONE'
 skip: 0
 
 # The following options are for Gvim usage.
@@ -758,7 +904,7 @@ by Ingy döt Net
 
 * Write a file called 'slides.vroom'.
   * Do this in a new directory.
-* Run 'vroom --vroom'.
+* Run 'vroom vroom'.
 * Voilà!
 
 ----
@@ -818,7 +964,7 @@ if [ -e "/tmp/html" ]; then
 fi
 
 # Create HTML slides.
-vroom --html || exit 1
+vroom html || exit 1
 # Move the html directory to /tmp
 mv html /tmp || exit 1
 # Stash any local stuff that isn't committed.
@@ -861,10 +1007,10 @@ If it makes sense to you, run it. (at your own risk :)
 
     > mkdir MySlides    # Make a Directory for Your Slides
     > cd MySlides       # Go In There
-    > vroom -new        # Create Example Slides File
+    > vroom new         # Create Example Slides File
     > vim slides.vroom  # Edit the File and Add Your Own Slides
-    > vroom --vroom     # Show Your Slides
-    > vroom --html      # Publish Your Slides as HTML
+    > vroom vroom       # Show Your Slides
+    > vroom html        # Publish Your Slides as HTML
 
 =head1 DESCRIPTION
 
@@ -878,17 +1024,12 @@ don't compile to HTML or JavaScript or XUL. They get turned into a set
 of files that begin with '0', like '03' or '07c' or '05b.pl'.
 
 The slides are named in alphabetic order. That means you can bring them
-all into a Vim session with the command: C<vim 0*>. C<vroom --vroom>
+all into a Vim session with the command: C<vim 0*>. C<vroom vroom>
 does exactly that.
 
 You can do things like advance to the next slide with the spacebar.
 Vroom creates a file called C<./.vimrc> with helpful key mappings for
 navigating a slideshow. See L<KEY MAPPINGS> below.
-
-Please note that you will need the following line in your
-C<$HOME/.vimrc> file in order to pick up the local C<.vimrc> file.
-
-    set exrc
 
 Vroom takes advantage of Vim's syntax highlighting. It also lets you run
 slides that contain code.
@@ -901,35 +1042,35 @@ Vroom has a few command line options:
 
 =over
 
-=item vroom --new
+=item vroom new
 
 Write an example C<slides.vroom> file. This example contains all the
 config options and also examples of all the Vroom syntax features.
 
-=item vroom --vroom
+=item vroom vroom
 
 Compile (create) the slides files from the input file and start vim
 show.
 
-=item vroom --compile
+=item vroom compile
 
 Just compile the slides.
 
-=item vroom --html
+=item vroom html
 
 Publish the slides to HTML, with embedded JavaScript to navigate with
 the spacebar and backspace keys. Created in the C<html/> subdirectory.
 
-=item vroom --text
+=item vroom text
 
 Publish the slides to plain text. This action uses all the text slides in
 their unsplit form.  Created in the C<text/> subdirectory.
 
-=item vroom --clean
+=item vroom clean
 
 Clean up all the compiled output files.
 
-=item vroom --ghpublish
+=item vroom ghpublish
 
 Creates a shell script in the current directory, that is intended to
 publish your slides to the special GitHub branch called gh-pages. See
@@ -944,7 +1085,7 @@ The skip option takes a number as its input and skips that number of
 files during compilation. This is useful when you are polishing your slides
 and are finished with the first 50. You can say:
 
-    vroom --vroom --skip=50
+    vroom vroom --skip=50
 
 and it will start on slide #51.
 
@@ -962,10 +1103,10 @@ Here is an example slides.vroom file:
     ---- config
     # These are YAML settings for Vroom
     title: My Spiffy Slideshow
-    height: 84
-    width: 20
+    # height: 84
+    # width: 20
+    auto_size: 1  # Determines height/width automatically
     # skip: 12      # Skip 12 slides. Useful when making slides.
-    # auto_size: 1  # Determines height/width automatically
     ---- center
     My Presentation
 
@@ -988,6 +1129,16 @@ A line that starts with '==' is a header line. It will be centered.
 
 Lines that begin with a '+' cause vroom to split the slide there,
 causing an animation effect.
+
+Lines that begin with a '%' are slide titles.  Titles are completely
+optional.  They are used with notes files, and also for the index
+page if you convert to HTML.  You can have only one of these per
+slide.
+
+A line consisting of nothing but '====' indicates that what follows
+are notes for this slide.  Notes are also optional.  They are
+primarily used for notes files, but are also included if you convert
+your presentation to HTML.  See L<SLIDE NOTES> below.
 
 =head1 CONFIGURATION OPTIONS
 
@@ -1024,7 +1175,7 @@ characters.
 
 =item i-##
 
-'i' followed by a negative number means to strip that number of leading 
+'i' followed by a negative number means to strip that number of leading
 characters from the contents of the slide.  This can be useful if you need
 to have characters special to Vroom at the beginning of your lines,
 for example if the contents of your slide is unified diff output.
@@ -1103,6 +1254,25 @@ These are all documented by gvim's help system. Please see that for more
 information.
 
 =back
+
+=head1 SLIDE NOTES
+
+You can add notes to each slide, if you like.  When you create your
+presentation (with C<vroom compile> or C<vroom vroom>), a file
+called C<notes.txt> will be created containing all your notes, along
+with indications of when to proceed to the next slide.  If you give
+any of your slides titles, they will also be put into the notes file
+in order to help you keep track of where you are in the
+presentation.
+
+You can print out your notes file, or simply bring it up on a
+separate device (such as your smartphone).  The notes are not part
+of the presentation; they are just for you.
+
+However, if you convert your presentation to HTML, the notes will be
+included in a smaller font below each slide.  This is useful when
+sharing your slides with others who were not present at the
+presentation.
 
 =head1 KEY MAPPINGS
 
@@ -1194,7 +1364,7 @@ the things I do to make this work well:
    website for each github repo. I use this feature to publish the html
    output of my talk. I do something like this:
 
-    vroom --html
+    vroom html
     mv html /tmp
     git branch gh-pages
     git checkout gh-pages
@@ -1206,9 +1376,9 @@ the things I do to make this work well:
     git push origin gh-pages
     git checkout master
 
-2B) Vroom comes with a C<--ghpublish> option. If you run:
+2B) Vroom comes with a C<ghpublish> option. If you run:
 
-    > vroom -ghpublish
+    > vroom ghpublish
 
 it will generate a script called C<ghpublish> that contains commands like the
 ones above, to publish your slides to a gh-pages branch.

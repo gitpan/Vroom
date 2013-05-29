@@ -33,4 +33,4 @@ resources:
     type: git
     url: git://github.com/ingydotnet/vroom-pm.git
     web: https://github.com/ingydotnet/vroom-pm/tree
-version: 0.27
+version: 0.28
