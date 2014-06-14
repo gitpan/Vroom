@@ -25,7 +25,7 @@ DESCRIPTION
 
     You can do things like advance to the next slide with the spacebar.
     Vroom creates a file called "./.vimrc" with helpful key mappings for
-    navigating a slideshow. See "KEY MAPPINGS" below.
+    navigating a slideshow. See [KEY MAPPINGS] below.
 
     Vroom takes advantage of Vim's syntax highlighting. It also lets you run
     slides that contain code.
@@ -61,7 +61,7 @@ COMMAND USAGE
     vroom ghpublish
         Creates a shell script in the current directory, that is intended to
         publish your slides to the special GitHub branch called gh-pages.
-        See "GITHUB NOTES" below.
+        See [GITHUB NOTES] below.
 
         This command does NOT run the script. It merely creates it for you.
         It is up to you to review the script and run it (if it makes sense
@@ -108,23 +108,23 @@ INPUT FORMAT
         ---- center
         THE END
 
-    A line that starts with '==' is a header line. It will be centered.
+    A line that starts with "==" is a header line. It will be centered.
 
-    Lines that begin with a '+' cause vroom to split the slide there,
+    Lines that begin with a "+" cause vroom to split the slide there,
     causing an animation effect.
 
-    Lines that begin with a '%' are slide titles. Titles are completely
+    Lines that begin with a "%" are slide titles. Titles are completely
     optional. They are used with notes files, and also for the index page if
     you convert to HTML. You can have only one of these per slide.
 
-    A line consisting of nothing but '====' indicates that what follows are
+    A line consisting of nothing but "====" indicates that what follows are
     notes for this slide. Notes are also optional. They are primarily used
     for notes files, but are also included if you convert your presentation
-    to HTML. See "SLIDE NOTES" below.
+    to HTML. See [SLIDE NOTES] below.
 
 CONFIGURATION OPTIONS
-    Each slide can have one or more configuration options. Options are a
-    comma separated list that follow the '----' header for a slide. Like
+    each slide can have one or more configuration options. Options are a
+    comma separated list that follow the "----" header for a slide. Like
     this:
 
         ---- config
@@ -145,10 +145,11 @@ CONFIGURATION OPTIONS
     center
         Center the contents of the slide.
 
-    i## 'i' followed by a number means to indent the contents by the number
+    "i##"
+        'i' followed by a number means to indent the contents by the number
         of characters.
 
-    i-##
+    "i-##"
         'i' followed by a negative number means to strip that number of
         leading characters from the contents of the slide. This can be
         useful if you need to have characters special to Vroom at the
@@ -173,32 +174,32 @@ CONFIGURATION OPTIONS
     skip
         Ignore the following slide completely.
 
-  CONFIG SLIDE OPTIONS
+  Config Slide Options
     You can specify the following configuration options in a config slide:
 
-    title: <text>
+    "title: <text>"
         The title of your presentation.
 
-    height: <number>
+    "height: <number>"
         The number of lines in the terminal you plan to use when presenting
         the show. Used for centering the content.
 
-    width: <number>
+    "width: <number>"
         The number of columns in the terminal you plan to use when
         presenting the show. Used for centering the content.
 
-    auto_size: <0|1>
+    "auto_size: <0|1>"
         When set to 1, the height/width options above will be ignored and
         determined each time you start the slideshow.
 
-    indent: <number>
+    "indent: <number>"
         All slides will be indented by this number of spaces by default.
 
-    list_indent: <number>
+    "list_indent: <number>"
         Auto detect slides that have lists in them, and indent them by the
         specified number of columns.
 
-    vim: <name>
+    "vim: <name>"
         You can specify the name of the vim executable to use. If you set
         this to "gvim" special gvim support will be provided.
 
@@ -233,30 +234,35 @@ SLIDE NOTES
 KEY MAPPINGS
     These are the standard key mappings specified in the local ".vimrc".
 
-    <SPACE>
+    "<SPACE>"
         Advance one slide.
 
-    <BACKSPACE>
+    "<BACKSPACE>"
         Go back one slide.
 
-    ??  Bring up the help screen.
+    "??"
+        Bring up the help screen.
 
-    RR (or R -- deprecated)
+    "RR" (or R -- deprecated)
         If the current slide is declared Perl, Python, Ruby, PHP, Haskell or
         JavaScript, then run it accordingly.
 
-    QQ  Quit Vroom.
+    "QQ"
+        Quit Vroom.
 
-    VV  Since these vim options apply while editing the "slides.vroom" file
+    "VV"
+        Since these vim options apply while editing the "slides.vroom" file
         (yes, beware), you can use this shortcut to launch Vroom on the
         current contents whilst writing your slides.
 
-    EE  Edit the file that the cursor is on the filename of.
+    "EE"
+        Edit the file that the cursor is on the filename of.
 
         You can put file path names in your slides, and then easily bring
         them up during your presentation.
 
-    OO  On a Mac, run the OS X "open" command on the argument that your
+    "OO"
+        On a Mac, run the OS X "open" command on the argument that your
         cursor is on.
 
         For instance, if you want to display an image, you could put the
@@ -273,7 +279,7 @@ CUSTOM CONFIGURATION
     You can also create a file called ".vroom/gvimrc" for gvim overrides, if
     you are using gvim.
 
-USING MacVim OR gvim
+USING MACVIM OR GVIM
     If you have a Mac, you really should try using MacVim for Vroom slide
     shows. You can run it in fullscreen mode, and it looks kinda
     professional.
@@ -291,51 +297,39 @@ GITHUB NOTES
     to publish your slides and give people a url to review them. Here are
     the things I do to make this work well:
 
-    1) I create a repository for every presentation I give. The name of the
-    repo is of the form <topic>-<event/time>-talk. You can go to
-    <http://github.com/ingydotnet/> and look for the repos ending with
-    "-talk".
+    *   I create a repository for every presentation I give. The name of the
+        repo is of the form <topic>-<event/time>-talk. You can go to
+        <http://github.com/ingydotnet/> and look for the repos ending with
+        "-talk".
 
-    2) GitHub has a feature called gh-pages that you can use to create a
-    website for each github repo. I use this feature to publish the html
-    output of my talk. I do something like this:
+    *   GitHub has a feature called gh-pages that you can use to create a
+        website for each github repo. I use this feature to publish the html
+        output of my talk. I do something like this:
 
-        vroom html
-        mv html /tmp
-        git branch gh-pages
-        git checkout gh-pages
-        rm -r *.html
-        mv /tmp/html/* .
-        rmdir /tmp/html
-        git add .
-        git commit -m 'Publish my slides'
-        git push origin gh-pages
-        git checkout master
+            vroom html
+            mv html /tmp
+            git branch gh-pages
+            git checkout gh-pages
+            rm -r *.html
+            mv /tmp/html/* .
+            rmdir /tmp/html
+            git add .
+            git commit -m 'Publish my slides'
+            git push origin gh-pages
+            git checkout master
 
-    2B) Vroom comes with a "ghpublish" option. If you run:
+    *   Vroom comes with a "ghpublish" option. If you run:
 
-        > vroom ghpublish
+            > vroom ghpublish
+        it will generate a script called C<ghpublish> that contains commands like the
+        ones above, to publish your slides to a gh-pages branch.
 
-    it will generate a script called "ghpublish" that contains commands like
-    the ones above, to publish your slides to a gh-pages branch.
-
-    3) If my repo is called "vroom-yapcna2009-talk", then after I publish
-    the talk to the gh-pages branch, it will be available as
-    <http://ingydotnet.github.com/vroom-yapcna2009-talk>. I then link this
-    url from <http://github.com/ingydotnet/vroom-yapcna2009-talk> as the
-    Homepage url.
+    *   If my repo is called "vroom-yapcna2009-talk", then after I publish
+        the talk to the gh-pages branch, it will be available as
+        <http://ingydotnet.github.com/vroom-yapcna2009-talk>. I then link
+        this url from <http://github.com/ingydotnet/vroom-yapcna2009-talk>
+        as the Homepage url.
 
     You can see an example of a talk published to HTML and posted via
     gh-pages at <http://ingydotnet.github.com/vroom-pm/>.
-
-AUTHOR
-    Ingy döt Net <ingy@ingy.net>
-
-COPYRIGHT AND LICENSE
-    Copyright (c) 2008-2013. Ingy döt Net.
-
-    This program is free software; you can redistribute it and/or modify it
-    under the same terms as Perl itself.
-
-    See http://www.perl.com/perl/misc/Artistic.html
 
