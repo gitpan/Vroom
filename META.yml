@@ -17,6 +17,7 @@ no_index:
     - inc
     - t
     - xt
+    - example
 requires:
   File::HomeDir: '0'
   IO::All: '0'
@@ -27,4 +28,4 @@ resources:
   bugtracker: https://github.com/ingydotnet/vroom-pm/issues
   homepage: https://github.com/ingydotnet/vroom-pm
   repository: https://github.com/ingydotnet/vroom-pm.git
-version: '0.30'
+version: '0.31'

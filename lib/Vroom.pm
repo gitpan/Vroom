@@ -1,6 +1,6 @@
-use 5.008001;
+use strict; use warnings;
 package Vroom;
-$Vroom::VERSION = '0.30';
+our $VERSION = '0.31';
 use Vroom::Mo;
 
 use File::HomeDir;
