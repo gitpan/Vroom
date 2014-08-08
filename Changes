@@ -1,3 +1,6 @@
+0.33 Fri Aug  8 12:59:46 PDT 2014
+ - Switch hashbang to '#!/usr/bin/env perl'
+
 0.32 Wed Jul 30 12:01:30 PDT 2014
  - Change doc to swim
  - Update Meta and add Contributing
