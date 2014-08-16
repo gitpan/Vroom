@@ -11,6 +11,5 @@ bin/vroom
 lib/Vroom.pm
 lib/Vroom.pod
 lib/Vroom/Mo.pm
-t/000-compile-modules.t
 t/release-pod-syntax.t
 t/test.t
