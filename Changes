@@ -1,3 +1,6 @@
+0.35 Fri Aug 15 21:00:48 PDT 2014
+ - Add t/000-compile-modules.t
+
 0.34 Sat Aug  9 00:28:19 PDT 2014
  - Fix swim errors
 

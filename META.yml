@@ -28,4 +28,4 @@ resources:
   bugtracker: https://github.com/ingydotnet/vroom-pm/issues
   homepage: https://github.com/ingydotnet/vroom-pm
   repository: https://github.com/ingydotnet/vroom-pm.git
-version: '0.34'
+version: '0.35'
